@@ -1,0 +1,97 @@
+name: IVS Education Project Workflow
+
+on:
+  push:
+    branches:
+      - main  # Kích hoạt khi có code mới trên nhánh chính
+      - develop  # Kích hoạt khi code được đẩy lên nhánh phát triển
+  pull_request:
+    branches:
+      - main  # Kích hoạt khi có PR tới nhánh chính
+  schedule:
+    - cron: "0 8 * * 1"  # Tự động chạy vào 8 giờ sáng Thứ Hai hàng tuần
+  workflow_dispatch:  # Cho phép chạy workflow thủ công
+
+jobs:
+  lint-and-test:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Run Tests
+        run: npm test
+
+  build-and-deploy:
+    name: Build and Deploy Application
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Deploy Application
+        if: github.ref == 'refs/heads/main'
+        run: npm run deploy
+
+  notify-slack:
+    name: Notify Progress on Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Notification to Slack
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          slack-message: "Project update: Workflow has completed successfully!"
+          slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
+
+  generate-weekly-report:
+    name: Generate Weekly Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Generate Report
+        run: |
+          echo "Generating weekly report..."
+          npm run generate-report
+
+      - name: Send Report via Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: Weekly Project Report
+          body: |
+            Dear Team,
+            The weekly report for the IVS Education Project is now available.
+          to: team@ivsacademy.com
+          from: ivs-reports@ivsacademy.com
+          attachments: weekly-report.pdf
